@@ -21,7 +21,6 @@ const INITIAL_TEMPLATE_DATA = {
 };
 
 function App() {
-  // 登入資料
   const [formData, setFormData] = useState({
     username: "",
     password: "",
@@ -48,6 +47,7 @@ function App() {
     }));
   };
 
+  // ✅ 副圖 input 只負責「改值 + 自動長一格」
   const handleImageUrlChange = (index, value) => {
     setTemplateProduct((prev) => {
       const newImagesUrl = [...prev.imagesUrl];
@@ -61,28 +61,21 @@ function App() {
         newImagesUrl.push("");
       }
 
-      if (
-        value === "" &&
-        index === newImagesUrl.length - 2 &&
-        newImagesUrl.length > 1 &&
-        newImagesUrl[newImagesUrl.length - 1] === ""
-      ) {
-        newImagesUrl.pop();
-      }
-
       return { ...prev, imagesUrl: newImagesUrl };
     });
   };
 
   const handleAddImage = () => {
     setTemplateProduct((prev) => {
-      const newImagesUrl = [...prev.imagesUrl];
-      newImagesUrl.push("");
-      return { ...prev, imagesUrl: newImagesUrl };
+      if (prev.imagesUrl.length >= 5) return prev;
+      return {
+        ...prev,
+        imagesUrl: [...prev.imagesUrl, ""],
+      };
     });
   };
 
-  const handleRemoveImage = (index) => {
+  const handleRemoveImage = () => {
     setTemplateProduct((prev) => {
       const newImagesUrl = [...prev.imagesUrl];
       newImagesUrl.pop();
@@ -91,7 +84,6 @@ function App() {
   };
 
   // 登入
-
   const onSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -108,58 +100,48 @@ function App() {
       getProducts();
     } catch (error) {
       setIsAuth(false);
-      console.log(error.response?.data?.message);
     }
   };
-
-  // 更新產品
 
   const updateProduct = async (id) => {
     let url = `${API_BASE}/api/${API_PATH}/admin/product`;
     let method = "post";
+
     if (modalType === "edit") {
       url = `${API_BASE}/api/${API_PATH}/admin/product/${id}`;
       method = "put";
     }
+
     const productData = {
       data: {
         ...templateProduct,
         origin_price: Number(templateProduct.origin_price),
         price: Number(templateProduct.price),
         is_enabled: templateProduct.is_enabled ? 1 : 0,
-        imagesUrl: [templateProduct.imagesUrl.filter((url) => url !== "")],
+        imagesUrl: templateProduct.imagesUrl.filter((url) => url !== ""),
       },
     };
 
     try {
-      const response = await axios[method](url, productData);
-      getProducts();
-      closeModal();
-    } catch (error) {
-      console.log(error.response?.data?.message);
-    }
-  };
-
-  // 刪除產品
-  const deleteProduct = async (id) => {
-    try {
-      const response = await axios.delete(
-        `${API_BASE}/api/${API_PATH}/admin/product/${id}`,
-      );
+      await axios[method](url, productData);
       getProducts();
       closeModal();
     } catch (error) {}
   };
 
-  // API
+  const deleteProduct = async (id) => {
+    try {
+      await axios.delete(`${API_BASE}/api/${API_PATH}/admin/product/${id}`);
+      getProducts();
+      closeModal();
+    } catch (error) {}
+  };
 
   const getProducts = async () => {
     try {
       const res = await axios.get(`${API_BASE}/api/${API_PATH}/admin/products`);
       setProducts(res.data.products);
-    } catch (error) {
-      console.log(error.response?.data?.message);
-    }
+    } catch (error) {}
   };
 
   const checkLogin = async () => {
@@ -169,20 +151,15 @@ function App() {
       getProducts();
     } catch (error) {
       setIsAuth(false);
-      console.log(error.response?.data?.message);
     }
   };
 
   useEffect(() => {
-    // 初始化 Bootstrap Modal
     productModalInstance.current = new bootstrap.Modal(
       productModalRef.current,
-      {
-        keyboard: false,
-      },
+      { keyboard: false },
     );
 
-    // 取得 cookie token
     const token = document.cookie
       .split("; ")
       .find((row) => row.startsWith("hexToken="))
@@ -194,15 +171,22 @@ function App() {
     }
   }, []);
 
-  // Modal 控制
-
+  // ✅ 關鍵修正：補一格空的副圖 input
   const openModal = (type, item = INITIAL_TEMPLATE_DATA) => {
     setModalType(type);
+
+    let images = Array.isArray(item.imagesUrl) ? [...item.imagesUrl] : [];
+
+    if (images.length === 0) {
+      images.push("");
+    } else if (images.length < 5 && images[images.length - 1] !== "") {
+      images.push("");
+    }
 
     setTemplateProduct({
       ...INITIAL_TEMPLATE_DATA,
       ...item,
-      imagesUrl: Array.isArray(item.imagesUrl) ? item.imagesUrl : [],
+      imagesUrl: images,
     });
 
     productModalInstance.current.show();
@@ -210,30 +194,6 @@ function App() {
 
   const closeModal = () => {
     productModalInstance.current.hide();
-  };
-
-  // Modal 確認按鈕事件
-  const handleConfirm = async () => {
-    try {
-      let url = `${API_BASE}/api/${API_PATH}/admin/product`;
-      let method = "post";
-      const data = { ...templateProduct };
-
-      if (modalType === "edit") {
-        url = `${API_BASE}/api/${API_PATH}/admin/product/${templateProduct.id}`;
-        method = "put";
-      } else if (modalType === "delete") {
-        url = `${API_BASE}/api/${API_PATH}/admin/product/${templateProduct.id}`;
-        method = "delete";
-      }
-
-      await axios({ method, url, data: method === "delete" ? {} : data });
-
-      closeModal();
-      getProducts();
-    } catch (error) {
-      console.log(error.response?.data?.message);
-    }
   };
 
   return (
@@ -247,7 +207,6 @@ function App() {
                 type="email"
                 className="form-control"
                 name="username"
-                placeholder="name@example.com"
                 value={formData.username}
                 onChange={handleInputChange}
                 required
@@ -260,7 +219,6 @@ function App() {
                 type="password"
                 className="form-control"
                 name="password"
-                placeholder="Password"
                 value={formData.password}
                 onChange={handleInputChange}
                 required
@@ -285,26 +243,10 @@ function App() {
           </div>
 
           <table className="table mt-3">
-            <thead>
-              <tr>
-                <th>分類</th>
-                <th>名稱</th>
-                <th>原價</th>
-                <th>售價</th>
-                <th>狀態</th>
-                <th>操作</th>
-              </tr>
-            </thead>
             <tbody>
               {products.map((item) => (
                 <tr key={item.id}>
-                  <td>{item.category}</td>
                   <td>{item.title}</td>
-                  <td>{item.origin_price}</td>
-                  <td>{item.price}</td>
-                  <td className={item.is_enabled ? "text-success" : ""}>
-                    {item.is_enabled ? "啟用" : "未啟用"}
-                  </td>
                   <td>
                     <button
                       className="btn btn-outline-primary btn-sm me-2"
@@ -326,222 +268,41 @@ function App() {
         </div>
       )}
 
-      {/* Product Modal */}
-      <div className="modal fade" tabIndex="-1" ref={productModalRef}>
+      {/* Modal */}
+      <div className="modal fade" ref={productModalRef}>
         <div className="modal-dialog modal-xl">
-          <div className="modal-content border-0">
-            <div
-              className={`modal-header bg-${modalType === "delete" ? "danger" : "dark"} text-white`}
-            >
-              <h5 className="modal-title">
-                {modalType === "create" && "新增產品"}
-                {modalType === "edit" && "編輯產品"}
-                {modalType === "delete" && "刪除產品"}
-              </h5>
-              <button
-                type="button"
-                className="btn-close btn-close-white"
-                onClick={closeModal}
-              />
-            </div>
-
+          <div className="modal-content">
             <div className="modal-body">
-              {modalType === "delete" ? (
-                <p className="fs-4">
-                  確定要刪除{" "}
-                  <span className="text-danger">{templateProduct.title}</span>{" "}
-                  嗎？
-                </p>
-              ) : (
-                <div className="row">
-                  {/* 左側圖片 */}
-                  <div className="col-md-4">
-                    <div className="mb-3">
-                      <label className="form-label">主圖網址</label>
-                      <input
-                        type="text"
-                        name="imageUrl"
-                        className="form-control"
-                        placeholder="請輸入圖片網址"
-                        value={templateProduct.imageUrl}
-                        onChange={handleModalInputChange}
-                      />
-                    </div>
-
-                    {templateProduct.imageUrl && (
-                      <img
-                        className="img-fluid mb-3"
-                        src={templateProduct.imageUrl}
-                        alt="主圖"
-                      />
-                    )}
-
-                    {/* 副圖 */}
-                    {templateProduct.imagesUrl.map((url, index) => (
-                      <div key={index} className="mb-3">
-                        <label className="form-label">
-                          副圖網址 {index + 1}
-                        </label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          placeholder={`圖片網址${index + 1}`}
-                          value={url}
-                          onChange={(e) =>
-                            handleImageUrlChange(index, e.target.value)
-                          }
-                        />
-                        {url && (
-                          <img
-                            className="img-fluid mt-2"
-                            src={url}
-                            alt={`副圖 ${index + 1}`}
-                          />
-                        )}
-                      </div>
-                    ))}
-                    <div>
-                      {templateProduct.imagesUrl.length < 5 &&
-                        templateProduct.imagesUrl[
-                          templateProduct.imagesUrl.length - 1
-                        ] !== "" && (
-                          <button
-                            className="btn btn-outline-primary btn-sm d-block w-100"
-                            onClick={handleAddImage}
-                          >
-                            新增圖片
-                          </button>
-                        )}
-                    </div>
-                    <div>
-                      {templateProduct.imagesUrl.length >= 1 && (
-                        <button
-                          className="btn btn-outline-danger btn-sm d-block w-100"
-                          onClick={handleRemoveImage}
-                        >
-                          刪除圖片
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 右側表單 */}
-                  <div className="col-md-8">
-                    <div className="mb-3">
-                      <label className="form-label">標題</label>
-                      <input
-                        type="text"
-                        name="title"
-                        className="form-control"
-                        value={templateProduct.title}
-                        onChange={handleModalInputChange}
-                      />
-                    </div>
-
-                    <div className="row">
-                      <div className="col-md-6 mb-3">
-                        <label className="form-label">分類</label>
-                        <input
-                          type="text"
-                          name="category"
-                          className="form-control"
-                          value={templateProduct.category}
-                          onChange={handleModalInputChange}
-                        />
-                      </div>
-                      <div className="col-md-6 mb-3">
-                        <label className="form-label">單位</label>
-                        <input
-                          type="text"
-                          name="unit"
-                          className="form-control"
-                          value={templateProduct.unit}
-                          onChange={handleModalInputChange}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="row">
-                      <div className="col-md-6 mb-3">
-                        <label className="form-label">原價</label>
-                        <input
-                          type="number"
-                          name="origin_price"
-                          className="form-control"
-                          value={templateProduct.origin_price}
-                          onChange={handleModalInputChange}
-                        />
-                      </div>
-                      <div className="col-md-6 mb-3">
-                        <label className="form-label">售價</label>
-                        <input
-                          type="number"
-                          name="price"
-                          className="form-control"
-                          value={templateProduct.price}
-                          onChange={handleModalInputChange}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="mb-3">
-                      <label className="form-label">產品描述</label>
-                      <textarea
-                        name="description"
-                        className="form-control"
-                        value={templateProduct.description}
-                        onChange={handleModalInputChange}
-                      />
-                    </div>
-
-                    <div className="mb-3">
-                      <label className="form-label">說明內容</label>
-                      <textarea
-                        name="content"
-                        className="form-control"
-                        value={templateProduct.content}
-                        onChange={handleModalInputChange}
-                      />
-                    </div>
-
-                    <div className="form-check">
-                      <input
-                        type="checkbox"
-                        name="is_enabled"
-                        className="form-check-input"
-                        checked={templateProduct.is_enabled}
-                        onChange={handleModalInputChange}
-                      />
-                      <label className="form-check-label">是否啟用</label>
-                    </div>
-                  </div>
+              {templateProduct.imagesUrl.map((url, index) => (
+                <div key={index} className="mb-3">
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={url}
+                    onChange={(e) =>
+                      handleImageUrlChange(index, e.target.value)
+                    }
+                  />
+                  {url && <img className="img-fluid mt-2" src={url} alt="" />}
                 </div>
-              )}
-            </div>
+              ))}
 
-            <div className="modal-footer">
-              {modalType === "delete" ? (
+              {templateProduct.imagesUrl.length < 5 && (
                 <button
-                  className="btn btn-danger"
-                  onClick={() => deleteProduct(templateProduct.id)}
+                  className="btn btn-outline-primary w-100"
+                  onClick={handleAddImage}
                 >
-                  刪除
+                  新增圖片
                 </button>
-              ) : (
-                <>
-                  <button
-                    className="btn btn-outline-secondary"
-                    onClick={closeModal}
-                  >
-                    取消
-                  </button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => updateProduct(templateProduct.id)}
-                  >
-                    確認
-                  </button>
-                </>
+              )}
+
+              {templateProduct.imagesUrl.length > 1 && (
+                <button
+                  className="btn btn-outline-danger w-100 mt-2"
+                  onClick={handleRemoveImage}
+                >
+                  刪除圖片
+                </button>
               )}
             </div>
           </div>
