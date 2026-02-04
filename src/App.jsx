@@ -434,6 +434,7 @@ function App() {
                         <label className="form-label">原價</label>
                         <input
                           type="number"
+                          min="0"
                           name="origin_price"
                           className="form-control"
                           value={templateProduct.origin_price}
@@ -444,6 +445,7 @@ function App() {
                         <label className="form-label">售價</label>
                         <input
                           type="number"
+                          min="0"
                           name="price"
                           className="form-control"
                           value={templateProduct.price}
